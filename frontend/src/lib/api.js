@@ -1,0 +1,133 @@
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+  clearTokens,
+} from "./token";
+import { is_login, username } from "./store";
+import { isPlatform } from "@ionic/core";
+import { navigate } from "svelte-routing";
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+let isRefreshing = false;
+async function refreshAccessToken() {
+  if (isRefreshing) return false; // ← 중복 호출 방지
+  isRefreshing = true;
+  try {
+    const isNative = isPlatform("capacitor");
+
+    if (isNative) {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) return false;
+
+      const res = await fetch(`${SERVER_URL}/api/user/refresh_token`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${refreshToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.status === 401) {
+        alert("Your session has expired. Please log in again!");
+        await clearTokens();
+        is_login.set(false);
+        username.set("");
+        navigate("/user-login");
+        return false;
+      }
+
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      await setAccessToken(data.access_token);
+      await setRefreshToken(data.refresh_token);
+      username.set(data.username);
+      is_login.set(true);
+      return true;
+    }
+  } catch (e) {
+    console.error("토큰 리프레시 실패:", e);
+    return false;
+  } finally {
+    isRefreshing = false; // ← 항상 초기화
+  }
+}
+
+const fastapi = async (
+  operation,
+  url,
+  params,
+  success_callback,
+  failure_callback,
+) => {
+  const isNative = isPlatform("capacitor");
+  let method = operation;
+  let _url = SERVER_URL + url;
+  const isFormData = params instanceof FormData;
+
+  let headers = {};
+
+  // 앱이면 Authorization 헤더 추가
+  if (isNative) {
+    const token = await getAccessToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  } else if (!isFormData) {
+    headers["Content-Type"] = "application/json"; // 웹 + JSON 요청만 Content-Type 지정
+  }
+
+  let body = null;
+
+  if (operation === "login") {
+    method = "POST";
+    body = JSON.stringify(params);
+  } else if (method === "get") {
+    _url += "?" + new URLSearchParams(params);
+  } else {
+    body = isFormData ? params : JSON.stringify(params);
+  }
+
+  const options = {
+    method: method,
+    headers: headers,
+    credentials: isNative ? undefined : "include", // 웹만 credentials 포함
+    body: method === "get" ? undefined : body,
+  };
+
+  let response = await fetch(_url, options);
+
+  // 401 처리
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      // 재시도
+      response = await fetch(_url, options);
+    } else {
+      is_login.set(false);
+      username.set("");
+      failure_callback?.({ status: 401, detail: "로그인 세션 만료됨" });
+      return;
+    }
+  }
+
+  if (response.status === 204) {
+    success_callback?.();
+    return;
+  }
+
+  if (response.ok) {
+    const json = await response.json();
+    success_callback?.(json);
+  } else {
+    try {
+      const json = await response.json();
+      failure_callback?.(json);
+    } catch (e) {
+      console.error("응답 JSON 파싱 실패", e);
+      failure_callback?.(e);
+    }
+  }
+};
+
+export default fastapi;
+export { refreshAccessToken };

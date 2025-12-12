@@ -1,0 +1,17 @@
+a[href^="tel"],
+a[href^="mailto"],
+a[href^="sms"] {
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+button.btn,
+button.btn span {
+  color: #000; /* 검정에 가까운 색, iOS가 자동 링크로 안 바꾸도록 */
+  -webkit-text-fill-color: #000 !important; /* iOS WebView 대응 */
+  text-decoration: none !important;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
