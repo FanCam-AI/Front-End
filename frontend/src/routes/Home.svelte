@@ -27,7 +27,8 @@
   let processingProgress = 0;
   let isSubmitting = false;
   let isUpdated = true;
-  let appVersion = "1.4";
+
+  let appVersion = "1.7";
 
   /**
    * uploadVideoInChunks는 비디오 파일을 청크 단위로 나누어 서버로 보내는 함수 입니다.
@@ -439,7 +440,7 @@
       return;
     }
 
-    const spotList = [
+    spotList = [
       ...spotList,
       { [`spot_${spotList.length}`]: [start, end] },
     ];
@@ -903,7 +904,6 @@
     background: #f5f5f5;
     padding-bottom: 6rem;
   }
-
   .progress-bar {
     width: 100%;
     height: 12px;

@@ -17,7 +17,7 @@
   let offerings = null;
   let error = null;
   let isUpdated = true;
-  let appVersion = "1.4";
+  let appVersion = "1.7";
 
   let currentPlan = null;
 

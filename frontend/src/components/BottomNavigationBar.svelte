@@ -28,13 +28,20 @@
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 90px; /* 높이 조절 */
-    display: flex;
-    justify-content: space-around; /* 버튼 사이 간격 고르게 */
-    align-items: center;
-    background-color: #ffffff;
+    height: 90px;
+    background: #fff;
     border-top: 1px solid #ddd;
-    box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
+
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+
+    z-index: 9999;
+
+    /* 🔥 핵심 */
+    transform: translateZ(0);
+    will-change: transform;
+    pointer-events: auto;
   }
 
   .bottom-nav button {

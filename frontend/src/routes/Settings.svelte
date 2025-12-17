@@ -11,7 +11,7 @@
 
   let currentPlan = "";
   let isUpdated = true;
-  let appVersion = "1.4";
+  let appVersion = "1.7";
 
   // ✅ 계정 삭제
   async function deleteAccount() {

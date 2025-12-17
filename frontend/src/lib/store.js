@@ -9,7 +9,7 @@ const persist_storage = (key, initValue) => {
     storedValueStr != null ? JSON.parse(storedValueStr) : initValue,
   );
   store.subscribe((val) => {
-    sessionStorage.setItem(key, JSON.stringify(val));
+    localStorage.setItem(key, JSON.stringify(val));
   });
   return store;
 };

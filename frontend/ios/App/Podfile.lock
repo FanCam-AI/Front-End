@@ -21,6 +21,8 @@ PODS:
     - SwiftKeychainWrapper
   - CapacitorShare (7.0.2):
     - Capacitor
+  - CapacitorSplashScreen (7.0.4):
+    - Capacitor
   - CapacitorVideoTools (0.0.1):
     - Capacitor
   - CapawesomeCapacitorFilePicker (7.2.0):
@@ -52,6 +54,7 @@ DEPENDENCIES:
   - "CapacitorFilesystem (from `../../node_modules/@capacitor/filesystem`)"
   - CapacitorSecureStoragePlugin (from `../../node_modules/capacitor-secure-storage-plugin`)
   - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
+  - "CapacitorSplashScreen (from `../../node_modules/@capacitor/splash-screen`)"
   - CapacitorVideoTools (from `../../../capacitor-video-tools`)
   - "CapawesomeCapacitorFilePicker (from `../../node_modules/@capawesome/capacitor-file-picker`)"
   - "CapgoCapacitorUploader (from `../../node_modules/@capgo/capacitor-uploader`)"
@@ -87,6 +90,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/capacitor-secure-storage-plugin"
   CapacitorShare:
     :path: "../../node_modules/@capacitor/share"
+  CapacitorSplashScreen:
+    :path: "../../node_modules/@capacitor/splash-screen"
   CapacitorVideoTools:
     :path: "../../../capacitor-video-tools"
   CapawesomeCapacitorFilePicker:
@@ -109,6 +114,7 @@ SPEC CHECKSUMS:
   CapacitorFilesystem: 0329ace667c6b971410cab3619dfb98a39cc3b86
   CapacitorSecureStoragePlugin: 450d402026ee3bcc018fa206504d9c0572fee78d
   CapacitorShare: be166411fa995ead2d39b104aa0aae56d8615c66
+  CapacitorSplashScreen: 000f7591d546907dda5cbb514bd6b6d9e6048cf8
   CapacitorVideoTools: 0e018ff4fec81528b227679c5596d86966c48edd
   CapawesomeCapacitorFilePicker: 0f4a913a00e39dd77213449f0d917e92f35a5ca9
   CapgoCapacitorUploader: 4b9e1e152f3827b0e6993d1cba03784608a26d3e
@@ -120,6 +126,6 @@ SPEC CHECKSUMS:
   SDWebImage: f29024626962457f3470184232766516dee8dfea
   SwiftKeychainWrapper: 807ba1d63c33a7d0613288512399cd1eda1e470c
 
-PODFILE CHECKSUM: 4ad33e71760050d54e26c2409b66ec51497616cb
+PODFILE CHECKSUM: 79cc16c4f12729970fd57d4a51610c8716eab743
 
 COCOAPODS: 1.16.2
