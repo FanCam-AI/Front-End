@@ -86,7 +86,7 @@
   }
 
   onMount(async () => {
-    visibleMap = {}; // ⭐ 페이지 재진입 시 초기화
+    visibleMap = {};
 
     await fastapi("get", "/api/app/version", null, (res) => {
       isUpdated = res.app_version === appVersion;
@@ -108,6 +108,11 @@
       (res) => {
         if (!currentPlan || currentPlan === "FREE") {
           alert("My-Gallery is only available to Premium plan users");
+          if (res.is_updated) {
+            alert(
+              "Your saved results are currently stored in My-Gallery. Since your Premium plan has ended, they are now password-protected and will be deleted in the future.",
+            );
+          }
           navigate("/subscribe");
           return;
         }
