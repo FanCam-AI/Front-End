@@ -37,6 +37,12 @@
         let key = "";
         let filename = videoFile.name;
         if (onProgress) onProgress(0);
+
+        const ext = filename.split('.').pop().toLowerCase();
+        let contentType = "application/octet-stream";
+        if (ext === "mov") contentType = "video/quicktime";
+        else if (ext === "mp4") contentType = "video/mp4";
+
         const formData = new FormData();
         formData.append("filename", filename);
         await fastapi(
@@ -53,7 +59,7 @@
         await fetch(url, {
             method: "PUT",
             headers: {
-                "Content-Type": "video/mp4",
+                "Content-Type": contentType,
             },
             body: videoFile,
         });
@@ -547,7 +553,7 @@
                 const formData = new FormData();
                 formData.append("video_key", videoKey);
                 imageKeys.forEach((key) => {
-                    formData.append("target_images", key);
+                    formData.append("target_image_keys", key);
                 });
                 formData.append(
                     "spot_list",
