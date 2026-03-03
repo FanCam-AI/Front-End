@@ -33,7 +33,7 @@
         params.append("code", code);
         params.append("code_verifier", verifier);
 
-        const res = await fetch("https://fancamai.com/api/auth/exchange", {
+        const res = await fetch("https://fancamai.com/auth/exchange", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",

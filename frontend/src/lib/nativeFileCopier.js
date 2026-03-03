@@ -12,7 +12,7 @@ export async function copyBinaryFileToNative(
   let isFirstChunk = true;
   let path = "";
 
-  let processed = 0; // 지금까지 처리한 바이트
+  let processed = 0;
 
   for (let offset = 0; offset < u8.length; offset += chunkSize) {
     const chunk = u8.slice(offset, offset + chunkSize);
@@ -27,7 +27,6 @@ export async function copyBinaryFileToNative(
     isFirstChunk = false;
     path = result.path;
 
-    // ✅ 진행률 업데이트
     processed += chunk.length;
     const progress = Math.round((processed / u8.length) * 100);
     if (onProgress) onProgress(progress);

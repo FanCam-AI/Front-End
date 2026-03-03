@@ -29,13 +29,11 @@
         );
       }
       const res = await purchase(pkg);
-      console.log("구매 성공 ✅", res);
       if (currentPlan === "PREMIUM") {
         return;
       }
       alert("Premium subscription has been successfully purchased! Welcome!");
     } catch (e) {
-      console.error("구매 실패 ❌", e);
       if (currentPlan === "PREMIUM") {
         return;
       }
@@ -61,7 +59,7 @@
 
     await fastapi(
       "get",
-      "/api/user/me",
+      "/user/me",
       null,
       (res) => {
         username.set(res.username);
@@ -75,7 +73,7 @@
         }
       },
       (err) => {
-        fastapi("get", "/api/app/version", null, (res) => {
+        fastapi("get", "/user/app_version", null, (res) => {
           if (res.app_version !== appVersion) {
             isUpdated = false;
             alert("Please update the app from the App Store");

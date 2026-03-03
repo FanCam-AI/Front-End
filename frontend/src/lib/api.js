@@ -12,7 +12,7 @@ import { navigate } from "svelte-routing";
 const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 let isRefreshing = false;
 async function refreshAccessToken() {
-  if (isRefreshing) return false; // ← 중복 호출 방지
+  if (isRefreshing) return false;
   isRefreshing = true;
   try {
     const isNative = isPlatform("capacitor");
@@ -21,7 +21,7 @@ async function refreshAccessToken() {
       const refreshToken = await getRefreshToken();
       if (!refreshToken) return false;
 
-      const res = await fetch(`${SERVER_URL}/api/user/refresh_token`, {
+      const res = await fetch(`${SERVER_URL}/auth/refresh_token`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${refreshToken}`,
@@ -47,10 +47,9 @@ async function refreshAccessToken() {
       return true;
     }
   } catch (e) {
-    console.error("토큰 리프레시 실패:", e);
     return false;
   } finally {
-    isRefreshing = false; // ← 항상 초기화
+    isRefreshing = false;
   }
 }
 
@@ -68,12 +67,11 @@ const fastapi = async (
 
   let headers = {};
 
-  // 앱이면 Authorization 헤더 추가
   if (isNative) {
     const token = await getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   } else if (!isFormData) {
-    headers["Content-Type"] = "application/json"; // 웹 + JSON 요청만 Content-Type 지정
+    headers["Content-Type"] = "application/json";
   }
 
   let body = null;
@@ -90,22 +88,20 @@ const fastapi = async (
   const options = {
     method: method,
     headers: headers,
-    credentials: isNative ? undefined : "include", // 웹만 credentials 포함
+    credentials: isNative ? undefined : "include",
     body: method === "get" ? undefined : body,
   };
 
   let response = await fetch(_url, options);
 
-  // 401 처리
   if (response.status === 401) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      // 재시도
       response = await fetch(_url, options);
     } else {
       is_login.set(false);
       username.set("");
-      failure_callback?.({ status: 401, detail: "로그인 세션 만료됨" });
+      failure_callback?.({ status: 401, detail: "Session Expired" });
       return;
     }
   }
@@ -123,7 +119,6 @@ const fastapi = async (
       const json = await response.json();
       failure_callback?.(json);
     } catch (e) {
-      console.error("응답 JSON 파싱 실패", e);
       failure_callback?.(e);
     }
   }

@@ -10,6 +10,9 @@
     import {goToHome, goToLogin} from "../lib/navigation.js";
     import {generateVerifier, generateChallenge} from "../lib/pkce.js";
     import {setPkceVerifier} from "../lib/pkceSession.ts";
+    import googleLogo from '../assets/google_logo.svg';
+    import appleLogo from '../assets/apple_logo.png';
+
 
     let error = {detail: []};
     let isUpdated = true;
@@ -25,7 +28,7 @@
     }
 
     onMount(() => {
-        fastapi("get", "/api/app/version", null, (res) => {
+        fastapi("get", "/user/app_version", null, (res) => {
             if (res.app_version !== appVersion) {
                 isUpdated = false;
                 alert("Please update the app from the App Store");
@@ -155,7 +158,7 @@
             <div class="buttons-container">
                 <button class="google-login-btn" on:click={loginWithGoogle}>
                     <img
-                            src="https://developers.google.com/static/identity/images/branding_guideline_sample_lt_rd_sl.svg"
+                            src={googleLogo}
                             alt="Google Logo"
                             class="google-logo"
                     />
@@ -164,7 +167,7 @@
 
                 <button class="apple-login-btn" on:click={loginWithApple}>
                     <img
-                            src="https://fancamai.com/fancam-ai-gallery/gif/appleid_button@4xblack).png"
+                            src={appleLogo}
                             alt="Apple Logo"
                             class="apple-logo"
                     />

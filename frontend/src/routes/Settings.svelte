@@ -29,10 +29,9 @@
 
     await fastapi(
       "post",
-      "/api/user/delete_account",
+      "/user/delete_account",
       null,
       async (res) => {
-        console.log("계정 삭제 완료:", res);
         await clearTokens();
         is_login.set(false);
         username.set("");
@@ -40,7 +39,6 @@
         navigate("/user-login");
       },
       (err) => {
-        console.error("Failed to delete account:", err);
         alert("Failed to delete account.");
       },
     );
@@ -66,14 +64,12 @@
     formData.append("password", password);
     await fastapi(
       "post",
-      "/api/result/set_all_private",
+      "/share/set_all_private",
       formData,
       (res) => {
-        console.log("Share Link 비밀번호 설정 완료:", res);
         alert("Share Link password has been set.");
       },
       (err) => {
-        console.error("Share Link 비밀번호 설정 실패:", err);
         alert("Failed to set the password for the Share Link.");
       },
     );
@@ -97,14 +93,12 @@
 
     await fastapi(
       "post",
-      "/api/result/set_all_public",
+      "/share/set_all_public",
       null,
       (res) => {
-        console.log("Share Link 비밀번호 해제 완료:", res);
         alert("Share Link password has been removed.");
       },
       (err) => {
-        console.error("Share Link 비밀번호 해제 실패:", err);
         alert("Failed to remove the password for the Share Link.");
       },
     );
@@ -115,7 +109,7 @@
     currentPlan = await checkPurchase();
     await fastapi(
       "get",
-      "/api/user/me",
+      "/user/me",
       null,
       (res) => {
         username.set(res.username);
@@ -129,7 +123,7 @@
         }
       },
       (err) => {
-        fastapi("get", "/api/app/version", null, (res) => {
+        fastapi("get", "/user/app_version", null, (res) => {
           if (res.app_version !== appVersion) {
             isUpdated = false;
             alert("Please update the app from the App Store");

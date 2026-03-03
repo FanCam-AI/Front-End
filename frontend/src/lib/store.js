@@ -22,7 +22,7 @@ export const result_list = writable([]);
 export async function logout() {
   await fastapi(
     "post",
-    "/api/user/logout",
+    "/auth/logout",
     null,
     (res) => console.log("Server logout completed successfully.", res),
     (err) => console.error("Failed to log out from the server.", err),

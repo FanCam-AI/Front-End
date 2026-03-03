@@ -47,7 +47,7 @@
         formData.append("filename", filename);
         await fastapi(
             "post",
-            "/api/result/init_video_upload",
+            "/result/init_video_upload",
             formData,
             (res) => {
                 url = res.url;
@@ -213,12 +213,10 @@
 
             await shareGif(outputPath);
         } catch (err) {
-            console.error("영상 처리 오류:", err);
             alert(
                 "A problem occurred during video processing. Please check the uploaded video and make sure you entered the correct time range!",
             );
         } finally {
-            console.error("에러 나도 파일 삭제 완료");
             NativeFileCopier.deleteFile({filePath});
         }
     }
@@ -327,7 +325,7 @@
 
         await fastapi(
             "get",
-            "/api/result/status",
+            "/result/status",
             null,
             (res) => {
                 if (res.status === "processing") {
@@ -335,13 +333,12 @@
                     isSubmitting = true;
                     checkStatus();
                 }
-            },
-            (err) => console.error("상태 확인 실패", err),
+            }
         );
 
         await fastapi(
             "get",
-            "/api/user/me",
+            "/user/me",
             null,
             (res) => {
                 username.set(res.username);
@@ -354,7 +351,7 @@
                 }
             },
             (err) => {
-                fastapi("get", "/api/app/version", null, (res) => {
+                fastapi("get", "/user/app_version", null, (res) => {
                     if (res.app_version !== appVersion) {
                         isUpdated = false;
                         alert("Please update the app from the App Store");
@@ -444,22 +441,18 @@
                 const formData = new FormData();
                 let filename = img.name
                 formData.append("filename", filename);
-                fastapi("post", "/api/result/init_image_upload", formData, resolve);
+                fastapi("post", "/result/init_image_upload", formData, resolve);
             });
 
             // presign 결과
             const key = presign.key;
             const url = presign.url;
-            console.log("Presign URL:", url, "Key:", key);
 
             // 2️⃣ R2에 직접 PUT
             const res = await fetch(url, {
                 method: "PUT",
                 body: img,
             });
-
-            console.log("PUT status:", res.status);
-
             if (!res.ok) {
                 throw new Error("이미지 업로드 실패");
             }
@@ -496,8 +489,6 @@
             alert("Please upload video file and add at least one time range.");
             return;
         }
-        console.log("Selected image files:", imageFiles.length);
-        console.log("Current Plan:", currentPlan);
 
         if (currentPlan === "FREE" && imageFiles.length > 0) {
             alert(
@@ -564,7 +555,7 @@
 
                 await fastapi(
                     "post",
-                    "/api/result/make_result",
+                    "/result/make_result",
                     formData,
                     (result) => {
                         if (result.status === "started") {
@@ -584,7 +575,6 @@
                     },
                     (error) => {
                         isSubmitting = false;
-                        console.error("API 요청 실패:", error);
                         alert(
                             "Sorry, we couldn't start the process. Please try again, or reach out to us via the FanCam AI email.",
                         );
@@ -635,7 +625,7 @@
         localStorage.removeItem("imageFileNames");
         localStorage.removeItem("spotList");
 
-        fastapi("post", "/api/result/reset_status", null);
+        fastapi("post", "/result/reset_status", null);
     }
 
     /**
@@ -648,7 +638,7 @@
         const interval = setInterval(() => {
             fastapi(
                 "get",
-                "/api/result/status",
+                "/result/status",
                 null,
                 (res) => {
                     if (res.status === "done") {
@@ -668,7 +658,6 @@
                     }
                 },
                 (err) => {
-                    console.error("상태 확인 중 오류:", err);
                     clearInterval(interval);
                     clearStorage();
                 },

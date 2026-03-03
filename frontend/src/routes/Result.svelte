@@ -61,14 +61,14 @@
       return;
     }
 
-    fastapi("get", "/api/result/result_list", {}, (json) => {
+    fastapi("get", "/share/result_list", {}, (json) => {
       result_list.set(json);
     });
   }
 
   function delete_result(id) {
     if (!confirm("Do you want to delete it")) return;
-    fastapi("delete", `/api/result/${id}`, {}, get_result_list);
+    fastapi("delete", `/result/${id}`, {}, get_result_list);
   }
 
   function downloadFile(url, filename = "download") {
@@ -88,7 +88,7 @@
   onMount(async () => {
     visibleMap = {};
 
-    await fastapi("get", "/api/app/version", null, (res) => {
+    await fastapi("get", "/user/app_version", null, (res) => {
       isUpdated = res.app_version === appVersion;
       if (!isUpdated) {
         alert("Please update the app from the App Store");
@@ -103,7 +103,7 @@
 
     await fastapi(
       "post",
-      "/api/user/me_check_premium",
+      "/user/me_check_premium",
       formData,
       (res) => {
         if (!currentPlan || currentPlan === "FREE") {
