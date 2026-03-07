@@ -27,7 +27,7 @@ export async function logout() {
     (res) => console.log("Server logout completed successfully.", res),
     (err) => console.error("Failed to log out from the server.", err),
   );
-  if (isPlatform) {
+  if (isPlatform("capacitor")) {
     await clearTokens(); // 앱은 토큰 직접 삭제
   }
 

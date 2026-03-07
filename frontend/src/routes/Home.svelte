@@ -2,7 +2,6 @@
     import {Filesystem, Directory} from "@capacitor/filesystem";
     import {onMount} from "svelte";
     import fastapi from "../lib/api";
-    import {refreshAccessToken} from "../lib/api";
     import {navigate} from "svelte-routing";
     import {is_login, username, logout} from "../lib/store";
     import {copyBinaryFileToNative} from "../lib/nativeFileCopier";
@@ -319,11 +318,9 @@
                 checkStatus();
             }
         }
-        await refreshAccessToken();
-        await initRevenueCat();
-        currentPlan = await checkPurchase();
-
-        await fastapi(
+        const revenuePromise = initRevenueCat();
+        const planPromise = revenuePromise.then(() => checkPurchase());
+        const statusPromise = fastapi(
             "get",
             "/result/status",
             null,
@@ -335,8 +332,7 @@
                 }
             }
         );
-
-        await fastapi(
+        const userPromise = fastapi(
             "get",
             "/user/me",
             null,
@@ -363,6 +359,14 @@
                 is_login.set(false);
             },
         );
+        const [, plan] = await Promise.all([
+            revenuePromise,
+            planPromise,
+            userPromise,
+            statusPromise
+        ]);
+
+        currentPlan = plan;
         done = false;
     });
 
@@ -670,7 +674,35 @@
      *
      * @returns
      */
+
+    function waitForPlan(maxWait = 4000) {
+        const interval = 100;
+        const start = Date.now();
+
+        return new Promise((resolve) => {
+            const timer = setInterval(() => {
+                if (currentPlan === "FREE" || currentPlan === "PREMIUM") {
+                    clearInterval(timer);
+                    resolve(currentPlan);
+                    return;
+                }
+
+                if (Date.now() - start > maxWait) {
+                    clearInterval(timer);
+                    resolve(currentPlan);
+                }
+            }, interval);
+        });
+    }
+
     function handleChooseClick() {
+        if (currentPlan === "") {
+            alert(
+                "Loading your subscription information. Please try again in 1–2 seconds. Thank you!",
+            );
+            return;
+
+        }
         if (currentPlan === "" || currentPlan === "FREE") {
             alert(
                 "Only users on the Premium plan have access to the AI Powered Tracking feature!",
@@ -685,6 +717,7 @@
 
         imageFileInput.click();
     }
+
 </script>
 
 {#if isUpdated}

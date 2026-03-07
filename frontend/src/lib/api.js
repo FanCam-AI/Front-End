@@ -3,21 +3,28 @@ import {
   getRefreshToken,
   setAccessToken,
   setRefreshToken,
-  clearTokens,
+  clearTokens
 } from "./token";
 import { is_login, username } from "./store";
 import { isPlatform } from "@ionic/core";
 import { navigate } from "svelte-routing";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL;
-let isRefreshing = false;
-async function refreshAccessToken() {
-  if (isRefreshing) return false;
-  isRefreshing = true;
-  try {
-    const isNative = isPlatform("capacitor");
+let refreshPromise = null;
 
-    if (isNative) {
+async function refreshAccessToken() {
+
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+
+    try {
+
+      const isNative = isPlatform("capacitor");
+      if (!isNative) return false;
+
       const refreshToken = await getRefreshToken();
       if (!refreshToken) return false;
 
@@ -25,9 +32,10 @@ async function refreshAccessToken() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${refreshToken}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       });
+
       if (res.status === 401) {
         alert("Your session has expired. Please log in again!");
         await clearTokens();
@@ -40,17 +48,24 @@ async function refreshAccessToken() {
       if (!res.ok) return false;
 
       const data = await res.json();
+
       await setAccessToken(data.access_token);
       await setRefreshToken(data.refresh_token);
+
       username.set(data.username);
       is_login.set(true);
+
       return true;
+
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
     }
-  } catch (e) {
-    return false;
-  } finally {
-    isRefreshing = false;
-  }
+
+  })();
+
+  return refreshPromise;
 }
 
 const fastapi = async (
@@ -58,7 +73,7 @@ const fastapi = async (
   url,
   params,
   success_callback,
-  failure_callback,
+  failure_callback
 ) => {
   const isNative = isPlatform("capacitor");
   let method = operation;
@@ -89,7 +104,7 @@ const fastapi = async (
     method: method,
     headers: headers,
     credentials: isNative ? undefined : "include",
-    body: method === "get" ? undefined : body,
+    body: method === "get" ? undefined : body
   };
 
   let response = await fetch(_url, options);
@@ -97,6 +112,10 @@ const fastapi = async (
   if (response.status === 401) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
+      const token = await getAccessToken();
+      if (token) {
+        options.headers["Authorization"] = `Bearer ${token}`;
+      }
       response = await fetch(_url, options);
     } else {
       is_login.set(false);
