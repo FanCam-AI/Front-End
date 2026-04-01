@@ -31,7 +31,7 @@
     height: 90px;
     background: #fff;
     border-top: 1px solid #ddd;
-
+    font-weight: 800;
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -55,6 +55,7 @@
     font-size: 12px;
     color: #333;
     padding: 0;
+    font-weight: 800;
   }
 
   .bottom-nav button:hover {

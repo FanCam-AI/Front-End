@@ -14,21 +14,21 @@ const persist_storage = (key, initValue) => {
   return store;
 };
 
+export const processingProgress = writable(0);
 export const username = persist_storage("username", "");
 export const is_login = persist_storage("is_login", false);
-
 export const result_list = writable([]);
 
 export async function logout() {
   await fastapi(
     "post",
     "/auth/logout",
-    null,
-    (res) => console.log("Server logout completed successfully.", res),
-    (err) => console.error("Failed to log out from the server.", err),
+    {},
+    (res) => console.log("Server logout completed successfully."),
+    (err) => console.error("Failed to log out from the server."),
   );
   if (isPlatform("capacitor")) {
-    await clearTokens(); // 앱은 토큰 직접 삭제
+    await clearTokens();
   }
 
   is_login.set(false);

@@ -11,7 +11,7 @@
     let openMenu = {};
     let currentPlan = "";
     let isUpdated = true;
-    let appVersion = "1.7";
+    let appVersion = "2.0";
 
     let visibleMap = {};
 
@@ -68,7 +68,7 @@
 
     function delete_result(id) {
         if (!confirm("Do you want to delete it")) return;
-        fastapi("delete", `/result/${id}`, {}, get_result_list);
+        fastapi("delete", `/share/${id}`, {});
     }
 
     function downloadFile(url, filename = "download") {
@@ -82,6 +82,35 @@
         navigator.clipboard.writeText(url).then(
             () => alert("The link has been copied!"),
             () => alert("Failed to copy the link."),
+        );
+    }
+
+    function setPassword(id) {
+        const password = prompt("Enter the password to set for the Share Link :");
+        if (!password) return;
+        const formData = new FormData();
+        formData.append("password", password);
+        fastapi("post", `/share/set_private/${id}`, formData,
+            (res) => {
+                alert("Share Link password has been set.");
+            },
+            (err) => {
+                alert("Failed to set the password for the Share Link.");
+            },
+        );
+    }
+    function handleLogout(){
+        logout();
+    }
+
+    function removePassword(id) {
+        fastapi("post", `/share/set_public/${id}`, {},
+            (res) => {
+                alert("Share Link password has been removed.");
+            },
+            (err) => {
+                alert("Failed to remove the password for the Share Link.");
+            },
         );
     }
 
@@ -137,7 +166,7 @@
             username={$username}
             {goToHome}
             {goToLogin}
-            {logout}
+            {handleLogout}
     />
 
     <div class="container">
@@ -167,9 +196,14 @@
 
                     {#if openMenu[result.id]}
                         <div class="button-group">
-                            <button class="btn" on:click={() => delete_result(result.id)}>
-                                Delete
+                            <button class="btn" on:click={() => setPassword(result.id)}>
+                                Set PW
                             </button>
+
+                            <button class="btn" on:click={() => removePassword(result.id)}>
+                                Remove PW
+                            </button>
+
                             <button class="btn" on:click={() => copyLink(result.share_url)}>
                                 Copy Link
                             </button>
@@ -178,6 +212,10 @@
                                     on:click={() => downloadFile(result.owner_url, result.title)}
                             >
                                 Download
+                            </button>
+
+                            <button class="btn" on:click={() => delete_result(result.id)}>
+                                Delete
                             </button>
                         </div>
                     {/if}
@@ -248,28 +286,83 @@
         z-index: 5;
     }
 
-    .button-group {
-        position: absolute;
-        top: 36px;
-        right: 8px;
-        background: #fff;
-        border-radius: 6px;
-        padding: 6px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        z-index: 10;
-    }
+.button-group {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
 
-    .btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.75rem;
-        border: 1px solid #999;
-        border-radius: 4px;
-        cursor: pointer;
-    }
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 
-    .btn:hover {
-        background: #f0f0f0;
+    animation: dropdown 0.18s ease-out;
+}
+
+/* 버튼 */
+.btn {
+    font-size: 0.82rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    cursor: pointer;
+
+    background: #ffffff;
+    color: #222;
+
+    font-weight: 800; /* 👉 핵심: 더 또렷하게 */
+    letter-spacing: 0.2px;
+
+    border: 1px solid #e6e6e6;
+
+    transition:
+        transform 0.15s ease,
+        background 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+/* 버튼 간 간격 */
+.btn + .btn {
+    margin-top: 4px;
+}
+
+/* hover */
+.btn:hover {
+    background: #f4f4f4;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+}
+
+/* 클릭 */
+.btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* 위험 버튼 */
+.btn.delete {
+    color: #d33;
+    border-color: #f1caca;
+}
+
+.btn.delete:hover {
+    background: #d33;
+    color: white;
+    border-color: #d33;
+}
+
+/* 드롭다운 등장 애니메이션 */
+@keyframes dropdown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
     }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
 </style>

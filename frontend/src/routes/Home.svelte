@@ -1,9 +1,12 @@
 <script>
     import {Filesystem, Directory} from "@capacitor/filesystem";
+    import {fly, fade} from 'svelte/transition';
+    import {cubicInOut} from 'svelte/easing';
     import {onMount} from "svelte";
     import fastapi from "../lib/api";
     import {navigate} from "svelte-routing";
-    import {is_login, username, logout} from "../lib/store";
+    import {is_login, username, logout, processingProgress} from "../lib/store";
+    import {startStatusPolling, stopStatusPolling} from "../lib/statusPolling";
     import {copyBinaryFileToNative} from "../lib/nativeFileCopier";
     import {goToHome, goToLogin} from "../lib/navigation";
     import {registerPlugin} from "@capacitor/core";
@@ -24,11 +27,17 @@
     let imageFileNames = [];
     let isUploading = false;
     let uploadProgress = 0;
-    let processingProgress = 0;
     let isSubmitting = false;
     let isUpdated = true;
+    let resultCount = 0;
+    let totalTime = 0;
 
-    let appVersion = "1.7";
+    let appVersion = "2.0";
+    let showPanel = false;
+    let format = "GIF";
+    let mode = "Normal";
+    let target = "Person";
+    let access = "FREE";
 
 
     async function uploadVideoToR2(videoFile, onProgress) {
@@ -198,7 +207,7 @@
             1024 * 1024 * 3,
             (progress) => {
                 isLoading = true;
-                processingProgress = Math.round(progress * 0.9, 90);
+                processingProgress.set(Math.round(progress * 0.9, 90));
             },
         );
         let outputPath;
@@ -212,9 +221,7 @@
 
             await shareGif(outputPath);
         } catch (err) {
-            alert(
-                "A problem occurred during video processing. Please check the uploaded video and make sure you entered the correct time range!",
-            );
+
         } finally {
             NativeFileCopier.deleteFile({filePath});
         }
@@ -301,6 +308,7 @@
     let isLoading = false;
     let done = false;
 
+
     onMount(async () => {
         window.scrollTo({top: 0, left: 0, behavior: "smooth"});
         const raw = localStorage.getItem("isLoading");
@@ -316,6 +324,7 @@
                 const spotRaw = localStorage.getItem("spotList");
                 if (spotRaw) spotList = JSON.parse(spotRaw);
                 checkStatus();
+
             }
         }
         const revenuePromise = initRevenueCat();
@@ -328,7 +337,9 @@
                 if (res.status === "processing") {
                     isLoading = true;
                     isSubmitting = true;
+
                     checkStatus();
+
                 }
             }
         );
@@ -344,6 +355,8 @@
                     alert("Please update the app from the App Store");
                 } else {
                     isUpdated = true;
+                    resultCount = res.result_count;
+
                 }
             },
             (err) => {
@@ -411,11 +424,7 @@
         const endSec = toSeconds(end);
         const maxRange = 91;
 
-        if (endSec - startSec >= maxRange) {
-            alert("Time range cannot be 90 seconds or longer.");
-            timeInputs = {start: ["", "", ""], end: ["", "", ""]};
-            return;
-        }
+        totalTime = endSec - startSec
 
         spotList = [...spotList, {[`spot_${spotList.length}`]: [start, end]}];
 
@@ -523,7 +532,7 @@
             ) {
                 alert("Stay on this screen until the Processing reaches 100%");
                 const result = await handleVideoStandard(videoFile, type);
-                processingProgress = 100;
+                processingProgress.set(100);
                 handleDone();
             } else {
                 alert(
@@ -566,9 +575,12 @@
                             alert("Processing has started!");
                             isLoading = true;
                             uploadProgress = 100;
+                            processingProgress.set(0);
                             isUploading = false;
                             done = false;
+
                             checkStatus();
+
                         } else if (result.status === "done") {
                             handleDone();
                         } else {
@@ -606,14 +618,14 @@
      * @returns
      */
     function handleDone() {
+        stopStatusPolling();
+        done = true;
         isLoading = false;
         isSubmitting = false;
-        done = true;
+        isUploading = false;
         clearStorage();
-        setTimeout(() => {
-            done = false;
-        }, 3000);
     }
+
 
     /**
      * clearStorage 사용자의 result가 완성된 경우 로컬스토리지와 isLoading, isSubmitting, done등을 초기화 하는 함수다.
@@ -630,6 +642,8 @@
         localStorage.removeItem("spotList");
 
         fastapi("post", "/result/reset_status", null);
+
+        uploadProgress = 0
     }
 
     /**
@@ -637,36 +651,29 @@
      *
      * @returns
      */
+
     function checkStatus() {
-        if (done || !isLoading) return;
-        const interval = setInterval(() => {
-            fastapi(
-                "get",
-                "/result/status",
-                null,
-                (res) => {
-                    if (res.status === "done") {
-                        alert("Result successfully made.");
-                        clearInterval(interval);
-                        handleDone();
-                    } else if (res.status === "failed") {
-                        clearInterval(interval);
-                        alert(
-                            "Please check your Wi-Fi or network connection and try again. If the issue persists, please contact us at the FanCam AI email.",
-                        );
-                        clearStorage();
-                    } else {
-                        processingProgress = !isNaN(Number(res.progress))
-                            ? Number(res.progress)
-                            : 0;
-                    }
-                },
-                (err) => {
-                    clearInterval(interval);
-                    clearStorage();
-                },
-            );
-        }, 3000);
+        if (done) return;
+
+        startStatusPolling(
+            (progress) => {
+                processingProgress.set(progress);
+            },
+            () => {
+                processingProgress.set(100);
+                handleDone();
+                alert("Result successfully made.");
+            },
+            () => {
+                alert("Processing failed.");
+                clearStorage();
+            }
+        );
+    }
+
+    function handleLogout() {
+        stopStatusPolling();
+        logout();
     }
 
     /**
@@ -675,30 +682,10 @@
      * @returns
      */
 
-    function waitForPlan(maxWait = 4000) {
-        const interval = 100;
-        const start = Date.now();
-
-        return new Promise((resolve) => {
-            const timer = setInterval(() => {
-                if (currentPlan === "FREE" || currentPlan === "PREMIUM") {
-                    clearInterval(timer);
-                    resolve(currentPlan);
-                    return;
-                }
-
-                if (Date.now() - start > maxWait) {
-                    clearInterval(timer);
-                    resolve(currentPlan);
-                }
-            }, interval);
-        });
-    }
-
     function handleChooseClick() {
         if (currentPlan === "") {
             alert(
-                "Loading your subscription information. Please try again in 1–2 seconds. Thank you!",
+                "Loading your subscription information. Please try again in 1–3 seconds. Thank you!",
             );
             return;
 
@@ -718,6 +705,297 @@
         imageFileInput.click();
     }
 
+    async function generatePremiumResult(mode, format) {
+        if (isSubmitting) {
+            alert(
+                "Your result is being processed right now. Please wait for it to complete.",
+            );
+            return;
+        }
+        if (!validateBeforeSubmit()) {
+            return;
+        }
+
+        try {
+
+            if (currentPlan === "") {
+                alert(
+                    "Loading your subscription information. Please try again in 1–3 seconds. Thank you!",
+                );
+                return;
+            }
+            if (!$is_login) {
+                alert("Please log in to continue!");
+                return;
+            }
+
+
+            if (currentPlan === "FREE") {
+                alert(
+                    "You're currently on the Free plan, and you've reached its usage limits. To continue using the service without interruption, please consider upgrading to a Premium!",
+                );
+                return;
+            }
+
+            if (Number(resultCount) >= 300) {
+                alert("There is no available space in My Gallery.\nYou have reached the maximum of 300 results.\n" +
+                    "Please organize your My Gallery to continue!\nFor any inquiries, please contact us via email.\nThank you!");
+                return;
+            }
+
+            const videoFile = videoFileInput.files[0];
+            const imageFiles = Array.from(imageFileInput.files);
+
+            if (!videoFile || spotList.length === 0) {
+                alert("Please upload a video file and include at least one time range and one screenshot.");
+                return;
+            }
+
+            if (totalTime >= 31) {
+                alert("Time range cannot be 30 seconds or longer");
+                removeSpot(0);
+                return;
+            }
+
+
+            if (mode === "precision" && imageFiles.length === 0) {
+                alert(
+                    "If you use Precision mode, please upload at least one screenshot. Otherwise, please select Normal mode. Thank you!",
+                );
+                return;
+            }
+
+
+            videoFileName = videoFile.name;
+            imageFileNames = imageFiles.map((f) => f.name);
+            localStorage.setItem("videoFileName", videoFileName);
+            localStorage.setItem("imageFileNames", JSON.stringify(imageFileNames));
+            localStorage.setItem("spotList", JSON.stringify(spotList));
+
+            done = false;
+            isSubmitting = true;
+            localStorage.setItem(
+                "isLoading",
+                JSON.stringify({value: true, timestamp: Date.now()}),
+            );
+            alert(
+                "Stay on this screen until the upload reaches 100% and “Processing” appears!",
+            );
+            const readyData = new FormData();
+            if (mode) {
+                readyData.append("tracking_mode", mode);
+            }
+            let readyStatus = "";
+            isUploading = true;
+
+            await fastapi(
+                "get",
+                "/result/check_ml_server_ready",
+                readyData,
+                (ready) => {
+                    if (ready.status === "ready") {
+                        readyStatus = "ready";
+                    } else if (ready.status === "not_ready") {
+                        readyStatus = "not_ready";
+                        handleDone();
+                    }
+                },
+                (error) => {
+                    readyStatus = "not_ready";
+                    alert(
+                        "Sorry, we couldn't start the process. Please try again, or reach out to us via the FanCam AI email.",
+                    );
+                    handleDone();
+                },
+            );
+
+
+            if (readyStatus === "not_ready") {
+                alert("Sorry, FanCam AI is currently at capacity.\n" +
+                    "Please try again in a few minutes.\n" +
+                    "We appreciate your patience as we work to improve the service.");
+                return;
+            }
+
+
+            let videoKey = await new Promise(async (resolve, reject) => {
+                try {
+                    const videoPath = await uploadVideoToR2(
+                        videoFile,
+                        (progress) => {
+                            isUploading = true;
+                            uploadProgress = Math.round(progress * 100);
+                        },
+                    );
+                    resolve(videoPath);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            const imageKeys = await uploadImagesToR2(imageFiles);
+            const formData = new FormData();
+            formData.append("video_key", videoKey);
+            imageKeys.forEach((key) => {
+                formData.append("target_image_keys", key);
+            });
+            formData.append(
+                "spot_list",
+                JSON.stringify(Object.assign({}, ...spotList)),
+            );
+            formData.append("video_or_gif", format);
+            formData.append("detection_model_type", "person");
+            if (mode) {
+                formData.append("tracking_mode", mode);
+            }
+
+            await fastapi(
+                "post",
+                "/result/make_result",
+                formData,
+                (result) => {
+                    if (result.status === "started") {
+                        alert("Processing has started!");
+                        isLoading = true;
+                        uploadProgress = 100;
+                        processingProgress.set(0);
+                        isUploading = false;
+                        done = false;
+
+                        checkStatus();
+
+                    } else if (result.status === "done") {
+                        handleDone();
+                    } else if (result.status === "busy") {
+                        alert("Sorry, FanCam AI is currently at capacity.\n" +
+                            "Please try again in a few minutes.\n" +
+                            "We appreciate your patience as we work to improve the service.");
+                        handleDone();
+                    } else {
+                        throw new Error(
+                            "Sorry, we couldn't start the process. Please try again, or reach out to us via the FanCam AI email.",
+                        );
+                    }
+                },
+                (error) => {
+                    isSubmitting = false;
+                    alert(
+                        "Sorry, we couldn't start the process. Please try again, or reach out to us via the FanCam AI email.",
+                    );
+                    handleDone();
+                },
+            );
+
+        } catch (e) {
+            isSubmitting = false;
+            handleDone();
+            if (e instanceof Error) {
+                alert(
+                    "Please check your Wi-Fi or network connection and try again. If the issue persists, please contact us at the FanCam AI email.",
+                );
+            } else {
+                alert(
+                    "Please check your Wi-Fi or network connection and try again. If the issue persists, please contact us at the FanCam AI email.",
+                );
+            }
+        }
+
+
+    }
+
+
+    async function generateFreeResult(format) {
+        if (isSubmitting) {
+            alert(
+                "Your result is being processed right now. Please wait for it to complete.",
+            );
+            return;
+        }
+        if (!validateBeforeSubmit()) {
+            return;
+        }
+
+
+        const videoFile = videoFileInput.files[0];
+        const imageFiles = Array.from(imageFileInput.files);
+
+        if (!videoFile || spotList.length === 0) {
+            alert("Please upload video file and add at least one time range.");
+            return;
+        }
+
+        if (totalTime >= 91) {
+                alert("Time range cannot be 90 seconds or longer");
+                removeSpot(0);
+                return;
+            }
+
+        if (currentPlan === "FREE" && imageFiles.length > 0) {
+            alert(
+                "You're currently on the Free plan, and you've reached its usage limits. To continue using the service without interruption, please consider upgrading to a Premium!",
+            );
+            return;
+        }
+
+        try {
+            videoFileName = videoFile.name;
+            imageFileNames = imageFiles.map((f) => f.name);
+            localStorage.setItem("videoFileName", videoFileName);
+            localStorage.setItem("imageFileNames", JSON.stringify(imageFileNames));
+            localStorage.setItem("spotList", JSON.stringify(spotList));
+
+            done = false;
+            isSubmitting = true;
+            localStorage.setItem(
+                "isLoading",
+                JSON.stringify({value: true, timestamp: Date.now()}),
+            );
+
+            const videoForm = new FormData();
+            videoForm.append("video", videoFile);
+
+            if (
+                (currentPlan === "FREE" || currentPlan === "") &&
+                imageFiles.length === 0
+            ) {
+                alert("Stay on this screen until the Processing reaches 100%");
+                const result = await handleVideoStandard(videoFile, format);
+                processingProgress.set(100);
+                handleDone();
+
+            }
+        } catch (e) {
+            isSubmitting = false;
+            if (e instanceof Error) {
+                alert(
+                    "Sorry, there was a problem. Please try again, or reach out to us via the FanCam AI email.",
+                );
+            } else {
+                alert(
+                    "Sorry, there was a problem. Please try again, or reach out to us via the FanCam AI email.",
+                );
+            }
+        }
+    }
+
+    function handleFabClick() {
+        showPanel = true;
+
+    }
+
+    function closePanel() {
+        showPanel = false;
+    }
+
+    function handleGenerate() {
+        if (access === "FREE") {
+            generateFreeResult(format.toLowerCase())
+        } else if (access === "PREMIUM") {
+            generatePremiumResult(mode.toLowerCase(), format.toLowerCase())
+        }
+
+        showPanel = false;
+    }
+
 </script>
 
 {#if isUpdated}
@@ -726,14 +1004,14 @@
             username={$username}
             {goToHome}
             {goToLogin}
-            {logout}
+            {handleLogout}
     />
     <!-- ✅ 본문 UI -->
     <div class="layout">
         <div class="left-panel">
             <!-- 비디오 업로드 -->
             <div class="upload-box">
-                <h3 style="color: #black;">Upload Video</h3>
+                <h3 style="color: #black; font-weight: 800;">Upload Video</h3>
                 <div class="custom-file-wrapper">
                     <input
                             type="file"
@@ -753,7 +1031,7 @@
 
             <!-- 이미지 업로드 (다중 선택) -->
             <div class="upload-box">
-                <h3>Upload Target Screenshot(s)</h3>
+                <h3 style="color: #black; font-weight: 800;">Upload Screenshot(s)</h3>
                 <div class="custom-file-wrapper">
                     <input
                             type="file"
@@ -772,7 +1050,7 @@
           </span>
                 </div>
                 <div class="caption">
-                    Use images of people or pets (dogs, cats) only.
+                    1–3 screenshots of the person you want to track in the video
                 </div>
             </div>
 
@@ -804,7 +1082,7 @@
         </div>
 
         <div class="center-panel">
-            <div style="font-size: 2rem; color: #black; margin-bottom: 1rem;">
+            <div style="font-size: 2rem; font-weight: 800; margin-bottom: 1rem;">
                 Time Range
             </div>
 
@@ -877,53 +1155,77 @@
                     <div class="progress-bar">
                         <div
                                 class="progress-fill"
-                                style="width: {processingProgress}%"
+                                style="width: {$processingProgress}%"
                         ></div>
                     </div>
-                    <div class="note">{processingProgress}%</div>
+                    <div class="note">{$processingProgress}%</div>
                 </div>
             {/if}
-
-            {#if done}
-                <div class="processing-message">✔ Done!</div>
-            {/if}
         </div>
 
-        <div class="right-panel">
-            <button
-                    class="custom-button"
-                    on:click={() => submitRequest("gif", "person")}
-            >
-                <div>Auto-Edit GIF</div>
-                <div class="caption">Auto-Edit Gif of a Person</div>
-            </button>
-
-            <button
-                    class="custom-button"
-                    on:click={() => submitRequest("video", "person")}
-            >
-                <div>Auto-Edit VIDEO</div>
-                <div class="caption">Auto-Edit Video of a Person</div>
-            </button>
-
-            <button
-                    class="custom-button"
-                    on:click={() => submitRequest("gif", "animal")}
-            >
-                <div>Auto-Edit GIF</div>
-                <div class="caption">Auto-Edit Gif of a Pet</div>
-            </button>
-
-            <button
-                    class="custom-button"
-                    on:click={() => submitRequest("video", "animal")}
-            >
-                <div>Auto-Edit VIDEO</div>
-                <div class="caption">Auto-Edit Video of a Pet</div>
-            </button>
-        </div>
     </div>
 
+    <button class="fab-button" on:click={handleFabClick}>
+        +
+    </button>
+    {#if showPanel}
+        <div
+                class="overlay"
+                on:click={closePanel}
+                out:fade={{ duration: 300 }}
+        ></div>
+
+        <div
+                class="bottom-sheet"
+                on:click|stopPropagation
+                out:fly={{ y: 300, duration: 350, easing: cubicInOut }}
+        >
+            <div class="drag-handle"></div>
+
+            <div class="sheet-header">
+                Output Settings
+            </div>
+
+            <!-- Access Level (작게, 가운데) -->
+            <div class="access-wrapper">
+                <div class="square-group small">
+                    <button class:selected={access==="FREE"} on:click={() => access="FREE"}>FREE</button>
+                    <button class:selected={access==="PREMIUM"} on:click={() => access="PREMIUM"}>PREMIUM</button>
+                </div>
+            </div>
+
+
+            <div class="sheet-content">
+
+                <!-- Mode -->
+                <div class="option-group mode {access !== 'PREMIUM' ? 'hidden' : ''}">
+                    <div class="label">Mode</div>
+                    <div class="pill-group">
+                        <button class:selected={mode==="Normal"} on:click={() => mode="Normal"}>Normal</button>
+                        <button class:selected={mode==="Precision"} on:click={() => mode="Precision"}>Precision</button>
+                    </div>
+                </div>
+
+                <!-- Format -->
+                <div class="option-group">
+                    <div class="label">Format</div>
+                    <div class="pill-group">
+                        <button class:selected={format==="GIF"} on:click={() => format="GIF"}>GIF</button>
+                        <button class:selected={format==="VIDEO"} on:click={() => format="VIDEO"}>VIDEO</button>
+                    </div>
+                </div>
+
+
+                <!-- ✅ Generate 버튼 (핵심 위치) -->
+                <div class="generate-wrapper">
+                    <button class="generate-button" on:click={handleGenerate}>
+                        Generate
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    {/if}
     <BottomNavigationBar/>
 
     <div class="mobile-only"></div>
@@ -932,9 +1234,243 @@
 <style>
     body {
         margin: 0;
-        font-family: "Helvetica eue", Helvetica, Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-weight: 400; /* 🔥 추가 */
         background: #f5f5f5;
         padding-bottom: 6rem;
+    }
+
+    .mode {
+        overflow: hidden;
+        max-height: 100px; /* 충분히 크게 */
+        opacity: 1;
+        margin-bottom: 16px;
+        font-weight: 800;
+
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s ease,
+        margin 0.25s ease;
+    }
+
+    .mode.hidden {
+        max-height: 0;
+        opacity: 0;
+        margin-bottom: 0;
+        transition-delay: 0s, 0s, 0s;
+    }
+
+    .mode {
+        transition-delay: 0s, 0.05s, 0.05s;
+    }
+
+    /* Access Level 전체 래퍼: Generation Options 바로 아래 중앙 */
+    .access-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-weight: 800;
+        margin-bottom: 1.5rem; /* 아래 간격 */
+    }
+
+    /* small 옵션: 버튼 작게 */
+    .square-group.small button {
+        width: 80px; /* 버튼 폭 작게 */
+        padding: 0.4rem; /* 패딩 줄이기 */
+        font-size: 0.8rem;
+        font-weight: 800;
+        border-radius: 6px;
+    }
+
+    /* square 버튼 그룹 */
+    .square-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .square-group button {
+        flex: 1;
+        padding: 0.8rem;
+        font-size: 0.9rem;
+        font-weight: 800;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #f7f7f7;
+        color: #000;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .square-group button.selected {
+        background: #000;
+        color: #fff;
+        border-color: #000;
+    }
+
+    /* overlay */
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(2px);
+        z-index: 9998;
+    }
+
+    /* bottom sheet */
+    .bottom-sheet {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+
+        height: 55vh; /* 👈 핵심 */
+        max-height: 60vh; /* 👈 안전장치 */
+
+        background: #fff;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        z-index: 9999;
+
+        display: flex; /* 👈 중요 */
+        flex-direction: column;
+
+        animation: slideUp 0.4s ease;
+    }
+
+    /* 애니메이션 */
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    /* 드래그 바 */
+    .drag-handle {
+        width: 40px;
+        height: 4px;
+        background: #ccc;
+        border-radius: 2px;
+        margin: 10px auto;
+    }
+
+    /* 헤더 */
+    .sheet-header {
+        text-align: center;
+        font-weight: 1000;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* 컨텐츠 */
+    .sheet-content {
+        flex: 1; /* 👈 남은 공간 채움 */
+        overflow-y: auto; /* 👈 스크롤 */
+        padding: 0 1rem 1.5rem;
+    }
+
+    /* 옵션 */
+    .option-group {
+        margin-bottom: 1.2rem;
+        font-weight: 800;
+    }
+
+    .label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.4rem;
+    }
+
+    /* pill 버튼 */
+    .pill-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .pill-group button {
+        flex: 1;
+        padding: 0.6rem;
+        color: #000000;
+        border-radius: 999px;
+        border: 1px solid #ddd;
+        background: #f7f7f7;
+        font-size: 0.9rem;
+        cursor: pointer;
+        font-weight: 800;
+        transition: all 0.2s ease;
+    }
+
+    /* 선택 상태 */
+    .pill-group button.selected {
+        background: #000;
+        color: #fff;
+        border-color: #000;
+        font-weight: 800;
+    }
+
+    /* Generate wrapper */
+    .generate-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 1.5rem;
+    }
+
+    /* Generate 버튼 */
+    .generate-button {
+        width: 80%;
+        max-width: 320px;
+        padding: 0.9rem;
+        border-radius: 14px;
+        border: none;
+        font-weight: 800;
+        font-size: 1rem;
+        background: #000000;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .generate-button:hover {
+        background: #f7f7f7;
+        color: #000000;
+    }
+
+    .generate-button:active {
+        transform: scale(0.97);
+    }
+
+
+    .fab-button {
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: none;
+        background: #000;
+        color: #007aff;
+        font-size: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .fab-button:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+    }
+
+    .fab-button:active {
+        transform: scale(0.95);
     }
 
     .progress-bar {
@@ -962,12 +1498,14 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
+        font-weight: 700;
     }
 
     .checkbox-label {
         display: flex;
         align-items: center;
         gap: 4px;
+        font-weight: 700;
     }
 
     .checkbox-label a {
@@ -975,7 +1513,7 @@
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
-        font-weight: 500;
+        font-weight: 700;
         transition: color 0.2s ease,
         text-decoration-thickness 0.2s ease;
     }
@@ -1013,7 +1551,7 @@
         font-size: 0.8rem;
         color: #555;
         margin-top: 0.2rem;
-        font-weight: 600; /* 글씨 굵게 */
+        font-weight: 800; /* 글씨 굵게 */
     }
 
     .upload-box h3 {
@@ -1024,12 +1562,14 @@
     .time-row {
         display: flex;
         gap: 0.3rem;
+        font-weight: 700;
         align-items: center;
         margin-bottom: 1rem;
     }
 
     .time-text {
         width: 320px; /* 고정 너비 설정 */
+        font-weight: 700;
     }
 
     .time-input {
@@ -1037,10 +1577,11 @@
         max-width: 2.5rem;
         padding: 0.3rem;
         text-align: center;
+        font-weight: 700;
     }
 
     .add-button {
-        width: 3rem;
+        width: 2rem;
         padding: 0.3rem 0.6rem;
         font-size: 1rem;
         margin-left: 0.5rem;
@@ -1048,6 +1589,7 @@
         border-radius: 4px;
         border: 1px solid #000;
         background: rgba(255, 255, 255, 0.5); /* 흰색 + 50% 투명 */
+        font-weight: 700;
     }
 
     .add-button:hover {
@@ -1105,7 +1647,7 @@
     .processing-message {
         margin-top: 2rem;
         font-size: 1rem;
-        font-weight: bold;
+        font-weight: 800;
         color: #444;
         text-align: center;
     }
@@ -1151,6 +1693,7 @@
     .file-name {
         display: inline-block;
         max-width: 200px; /* 원하는 너비로 조정 */
+        font-weight: 550;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1169,6 +1712,7 @@
         display: flex;
         justify-content: center; /* 가운데 정렬 */
         align-items: center; /* 수직 가운데 정렬 */
+        font-weight: 700;
     }
 
     .remove-button:hover {
@@ -1191,30 +1735,78 @@
         margin-top: 0.2rem;
     }
 
-    @media (min-width: 834px) {
-        .right-panel {
-            width: 23%; /* 예: 패널을 좀 더 넓게 */
+
+    .layout {
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .mobile-only {
+        height: 250px;
+    }
+
+    .left-panel,
+    .center-panel,
+    .right-panel {
+        width: 100%;
+    }
+
+    .file-name {
+        max-width: 120px;
+    }
+
+
+    @media (orientation: landscape) {
+        .mobile-only {
+            display: block;
+            height: 50vh; /* 화면 높이 기준으로 고정 */
+            overflow-y: auto; /* 스크롤 활성화 */
         }
     }
 
-    @media (max-width: 768px) {
+    @media (min-width: 768px) {
         .layout {
-            flex-direction: column;
+            flex-direction: column; /* 세로로 쌓이게 */
             padding: 1rem;
+            gap: 1.5rem;
         }
 
-        .mobile-only {
-            height: 200px;
+        .left-panel {
+            width: 100%; /* 아이패드에서는 꽉 채움 */
+            max-width: none;
+            gap: 1.5rem;
         }
 
-        .left-panel,
-        .center-panel,
-        .right-panel {
-            width: 100%;
+        .center-panel {
+            width: 100%; /* left-panel이 늘어나면 center도 100% */
+            margin-left: 0; /* 오른쪽 이동 막기 */
         }
 
-        .file-name {
-            max-width: 120px;
+        .upload-box,
+        .checkbox-container {
+            width: 100%; /* 동일하게 맞춤 */
+            max-width: none; /* 제한 없앰 */
         }
+
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+
+            height: 60vh; /* :point_left: 핵심 */
+            max-height: 70vh; /* :point_left: 안전장치 */
+
+            background: #fff;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            z-index: 9999;
+
+            display: flex; /* :point_left: 중요 */
+            flex-direction: column;
+
+            animation: slideUp 0.4s ease;
+        }
+
     }
 </style>

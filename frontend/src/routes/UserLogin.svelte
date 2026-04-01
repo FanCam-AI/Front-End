@@ -16,7 +16,7 @@
 
     let error = {detail: []};
     let isUpdated = true;
-    let appVersion = "1.7";
+    let appVersion = "2.0";
 
     let agreeAll = false;
     let agreeTerms = false;
@@ -48,6 +48,10 @@
             return false;
         }
         return true;
+    }
+
+    function handleLogout(){
+        logout();
     }
 
     async function loginWithGoogle(event) {
@@ -91,11 +95,11 @@
             username={$username}
             {goToHome}
             {goToLogin}
-            {logout}
+            {handleLogout}
     />
 
     <div class="container">
-        <h5 class="my-3 border-bottom pb-2">Log In</h5>
+        <h5 style="font-weight: 900;">Log In</h5>
 
         {#if error.detail.length > 0}
             <div class="alert">
@@ -117,7 +121,7 @@
                             bind:checked={agreeAll}
                             on:change={toggleAllAgree}
                     />
-                    <span>I agree to all terms and conditions.</span>
+                    <span>I agree to all terms and conditions</span>
                 </label>
 
                 <!-- Individual agreements -->
@@ -199,6 +203,7 @@
         border: 1px solid #f5c6cb;
         border-radius: 4px;
         margin-bottom: 1rem;
+        font-weight: 800;
     }
 
     .buttons-container {
@@ -218,7 +223,7 @@
         border: none;
         border-radius: 6px; /* 권장 라운드 */
         font-size: 16px;
-        font-weight: 600;
+        font-weight: 800;
         cursor: pointer;
         width: 100%;
         max-width: 300px;
@@ -236,7 +241,7 @@
         border: 1px solid #aaa;
         border-radius: 6px;
         font-size: 16px;
-        font-weight: 600;
+        font-weight: 800;
         cursor: pointer;
         width: 100%;
         max-width: 300px;
@@ -264,11 +269,13 @@
         padding: 0.75rem 1rem;
         border: 1px solid #ddd;
         border-radius: 6px;
+        font-weight: 600;
         background-color: #fafafa;
     }
 
     .checkbox-label {
         font-size: 0.95rem;
+        font-weight: 600;
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -293,7 +300,7 @@
     .checkbox-label a {
         color: #000; /* 검정색 */
         text-decoration: underline; /* 점선 밑줄로 링크임을 표현 */
-        font-weight: 500;
+        font-weight: 600;
         cursor: pointer;
     }
 
