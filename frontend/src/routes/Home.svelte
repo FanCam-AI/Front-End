@@ -665,8 +665,8 @@
                 alert("Result successfully made.");
             },
             () => {
+                handleDone();
                 alert("Processing failed.");
-                clearStorage();
             }
         );
     }
