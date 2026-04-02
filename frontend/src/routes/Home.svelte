@@ -673,6 +673,18 @@
 
     function handleLogout() {
         stopStatusPolling();
+        done = true;
+        isLoading = false;
+        isSubmitting = false;
+        isUploading = false;
+        videoFileName = "";
+        imageFileNames = [];
+        spotList = [];
+        localStorage.removeItem("isLoading");
+        localStorage.removeItem("videoFileName");
+        localStorage.removeItem("imageFileNames");
+        localStorage.removeItem("spotList");
+        uploadProgress = 0
         logout();
     }
 
