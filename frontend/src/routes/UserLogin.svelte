@@ -16,7 +16,7 @@
 
     let error = {detail: []};
     let isUpdated = true;
-    let appVersion = "2.0";
+    let appVersion = "2.3";
 
     let agreeAll = false;
     let agreeTerms = false;

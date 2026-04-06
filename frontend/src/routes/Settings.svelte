@@ -11,7 +11,7 @@
 
     let currentPlan = "";
     let isUpdated = true;
-    let appVersion = "2.0";
+    let appVersion = "2.3";
 
     function handleLogout(){
         logout();

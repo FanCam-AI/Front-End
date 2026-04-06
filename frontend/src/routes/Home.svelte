@@ -32,7 +32,7 @@
     let resultCount = 0;
     let totalTime = 0;
 
-    let appVersion = "2.0";
+    let appVersion = "2.3";
     let showPanel = false;
     let format = "GIF";
     let mode = "Normal";
@@ -294,6 +294,15 @@
             imageFileInput.value = ""; // 선택 초기화
             return;
         }
+        if (files.length > 5) {
+            alert("You can select up to 5 screenshots.");
+
+            // 선택 초기화
+            imageFileInput.value = "";
+            imageFileNames = [];
+            return;
+        }
+
 
         imageFileNames = Array.from(imageFileInput.files).map((file) => file.name);
         localStorage.setItem("imageFileNames", JSON.stringify(imageFileNames));
@@ -763,10 +772,28 @@
                 return;
             }
 
-            if (totalTime >= 31) {
-                alert("Time range cannot be 30 seconds or longer");
-                removeSpot(0);
-                return;
+            if (format === "gif") {
+                if (totalTime >= 16) {
+                    alert("If you use GIF format, Time range cannot be 15 seconds or longer");
+                    removeSpot(0);
+                    return;
+                }
+
+            }
+
+            if (mode === "precision" && format === "video") {
+                if (totalTime >= 31) {
+                    alert("If you use Precision mode and video format, Time range cannot be 30 seconds or longer");
+                    removeSpot(0);
+                    return;
+                }
+            }
+            if (mode === "normal" && format === "video") {
+                if (totalTime >= 61) {
+                    alert("If you use Normal mode and video format, Time range cannot be 60 seconds or longer");
+                    removeSpot(0);
+                    return;
+                }
             }
 
 
@@ -774,6 +801,15 @@
                 alert(
                     "If you use Precision mode, please upload at least one screenshot. Otherwise, please select Normal mode. Thank you!",
                 );
+                return;
+            }
+
+            if (mode === "normal" && imageFiles.length > 0) {
+                alert(
+                    "If you use Normal mode, Screenshots cannot be uploaded. Otherwise, please select Precision mode. Thank you!",
+                );
+                imageFileInput.value = "";
+                imageFileNames = [];
                 return;
             }
 
@@ -935,18 +971,32 @@
             return;
         }
 
-        if (totalTime >= 91) {
+        if (format === "gif") {
+            if (totalTime >= 16) {
+                alert("If you use GIF format, Time range cannot be 15 seconds or longer");
+                removeSpot(0);
+                return;
+            }
+
+        }
+
+        if (format === "video") {
+            if (totalTime >= 91) {
                 alert("Time range cannot be 90 seconds or longer");
                 removeSpot(0);
                 return;
             }
 
-        if (currentPlan === "FREE" && imageFiles.length > 0) {
-            alert(
-                "You're currently on the Free plan, and you've reached its usage limits. To continue using the service without interruption, please consider upgrading to a Premium!",
-            );
-            return;
         }
+
+        if (imageFiles.length > 0) {
+                alert(
+                    "If you use FREE plan, Screenshots cannot be uploaded. Otherwise, please select PREMIUM plan and Precision mode. Thank you!",
+                );
+                imageFileInput.value = "";
+                imageFileNames = [];
+                return;
+            }
 
         try {
             videoFileName = videoFile.name;
@@ -965,16 +1015,12 @@
             const videoForm = new FormData();
             videoForm.append("video", videoFile);
 
-            if (
-                (currentPlan === "FREE" || currentPlan === "") &&
-                imageFiles.length === 0
-            ) {
-                alert("Stay on this screen until the Processing reaches 100%");
-                const result = await handleVideoStandard(videoFile, format);
-                processingProgress.set(100);
-                handleDone();
+            alert("Stay on this screen until the Processing reaches 100%");
+            const result = await handleVideoStandard(videoFile, format);
+            processingProgress.set(100);
+            handleDone();
 
-            }
+
         } catch (e) {
             isSubmitting = false;
             if (e instanceof Error) {
@@ -1062,7 +1108,7 @@
           </span>
                 </div>
                 <div class="caption">
-                    1–3 screenshots of the person you want to track in the video
+                    1–5 screenshots of the person you want to track in the video
                 </div>
             </div>
 
@@ -1590,6 +1636,8 @@
         padding: 0.3rem;
         text-align: center;
         font-weight: 700;
+        border-radius: 4px;
+        border: 1px solid #000;
     }
 
     .add-button {
