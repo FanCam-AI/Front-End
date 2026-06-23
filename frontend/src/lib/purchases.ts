@@ -3,11 +3,11 @@ import {
   LOG_LEVEL,
 } from "@revenuecat/purchases-capacitor";
 
-export async function initRevenueCat() {
+export async function initRevenueCat(userID: string) {
   await Purchases.setLogLevel({ level: LOG_LEVEL.INFO });
   await Purchases.configure({
     apiKey: "appl_zTjPeGpDvlCMbZuPouajikuVhuR",
-    appUserID: undefined,
+    appUserID: userID,
   });
 }
 

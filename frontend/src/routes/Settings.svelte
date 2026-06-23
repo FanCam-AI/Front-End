@@ -4,7 +4,6 @@
     import {is_login, username, logout} from "../lib/store";
     import {navigate} from "svelte-routing";
     import {clearTokens} from "../lib/token";
-    import {initRevenueCat, checkPurchase} from "../lib/purchases";
     import Header from "../components/Header.svelte";
     import BottomNavigationBar from "../components/BottomNavigationBar.svelte";
     import {goToHome, goToLogin} from "../lib/navigation.js";
@@ -109,8 +108,6 @@
     }
 
     onMount(async () => {
-        await initRevenueCat();
-        currentPlan = await checkPurchase();
         await fastapi(
             "get",
             "/user/me",
@@ -118,6 +115,7 @@
             (res) => {
                 username.set(res.username);
                 is_login.set(true);
+                currentPlan = res.subscription_plan;
 
                 if (res.app_version !== appVersion) {
                     isUpdated = false;
@@ -137,6 +135,7 @@
                 });
                 username.set("");
                 is_login.set(false);
+                currentPlan = "FREE";
             },
         );
     });

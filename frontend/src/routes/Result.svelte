@@ -4,7 +4,6 @@
     import {is_login, username, result_list, logout} from "../lib/store";
     import {navigate} from "svelte-routing";
     import {goToHome, goToLogin} from "../lib/navigation";
-    import {initRevenueCat, checkPurchase} from "../lib/purchases";
     import Header from "../components/Header.svelte";
     import BottomNavigationBar from "../components/BottomNavigationBar.svelte";
 
@@ -21,7 +20,7 @@
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
                         visibleMap = {...visibleMap, [id]: true};
-                        observer.disconnect(); // 이 카드만 관찰 종료
+                        observer.disconnect();
                     }
                 });
             },
@@ -69,6 +68,7 @@
     function delete_result(id) {
         if (!confirm("Do you want to delete it")) return;
         fastapi("delete", `/share/${id}`, {});
+        get_result_list()
     }
 
     function downloadFile(url, filename = "download") {
@@ -93,6 +93,7 @@
         fastapi("post", `/share/set_private/${id}`, formData,
             (res) => {
                 alert("Share Link password has been set.");
+                get_result_list()
             },
             (err) => {
                 alert("Failed to set the password for the Share Link.");
@@ -107,6 +108,7 @@
         fastapi("post", `/share/set_public/${id}`, {},
             (res) => {
                 alert("Share Link password has been removed.");
+                get_result_list()
             },
             (err) => {
                 alert("Failed to remove the password for the Share Link.");
@@ -117,41 +119,42 @@
     onMount(async () => {
         visibleMap = {};
 
-        await fastapi("get", "/user/app_version", null, (res) => {
-            isUpdated = res.app_version === appVersion;
-            if (!isUpdated) {
-                alert("Please update the app from the App Store");
-            }
-        });
-
-        await initRevenueCat();
-        currentPlan = await checkPurchase();
-
-        const formData = new FormData();
-        formData.append("current_plan", currentPlan);
-
         await fastapi(
-            "post",
-            "/user/me_check_premium",
-            formData,
+            "get",
+            "/user/me",
+            null,
             (res) => {
+                username.set(res.username);
+                is_login.set(true);
+                currentPlan = String(res.subscription_plan).toUpperCase();
+
+                if (res.app_version !== appVersion) {
+                    isUpdated = false;
+                    alert("Please update the app from the App Store");
+                } else {
+                    isUpdated = true;
+                }
+
                 if (!currentPlan || currentPlan === "FREE") {
                     alert("My-Gallery is only available to Premium plan users");
-                    if (res.is_updated) {
-                        alert(
-                            "Your saved results are currently stored in My-Gallery. Since your Premium plan has ended, they are now password-protected and will be deleted in the future.",
-                        );
-                    }
                     navigate("/subscribe");
                     return;
                 }
-                username.set(res.username);
-                is_login.set(true);
                 get_result_list();
             },
             (err) => {
+                fastapi("get", "/user/app_version", null, (res) => {
+                    if (res.app_version !== appVersion) {
+                        isUpdated = false;
+                        alert("Please update the app from the App Store");
+                    } else {
+                        isUpdated = true;
+                    }
+                });
                 alert("Please Log In to Continue!");
+                username.set("");
                 is_login.set(false);
+                currentPlan = "FREE";
                 navigate("/user-login");
             },
         );

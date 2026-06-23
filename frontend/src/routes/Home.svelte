@@ -11,7 +11,6 @@
     import {goToHome, goToLogin} from "../lib/navigation";
     import {registerPlugin} from "@capacitor/core";
     import {Share} from "@capacitor/share";
-    import {initRevenueCat, checkPurchase} from "../lib/purchases";
     import Header from "../components/Header.svelte";
     import BottomNavigationBar from "../components/BottomNavigationBar.svelte";
 
@@ -336,8 +335,6 @@
 
             }
         }
-        const revenuePromise = initRevenueCat();
-        const planPromise = revenuePromise.then(() => checkPurchase());
         const statusPromise = fastapi(
             "get",
             "/result/status",
@@ -364,6 +361,7 @@
                     alert("Please update the app from the App Store");
                 } else {
                     isUpdated = true;
+                    currentPlan = res.subscription_plan;
                     resultCount = res.result_count;
 
                 }
@@ -379,16 +377,13 @@
                 });
                 username.set("");
                 is_login.set(false);
+                currentPlan = "FREE";
             },
         );
-        const [, plan] = await Promise.all([
-            revenuePromise,
-            planPromise,
+        await Promise.all([
             userPromise,
             statusPromise
         ]);
-
-        currentPlan = plan;
         done = false;
     });
 

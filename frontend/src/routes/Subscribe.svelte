@@ -19,6 +19,7 @@
     let error = null;
     let isUpdated = true;
     let appVersion = "2.3";
+    let userID = "";
 
     let currentPlan = null;
 
@@ -30,7 +31,7 @@
         }
     }
 
-    function handleLogout(){
+    function handleLogout() {
         logout();
     }
 
@@ -51,7 +52,7 @@
                 is_login.set(false);
                 navigate("/user-login");
             }
-            );
+        );
 
         if (status === "ok") {
             alert("Login approved")
@@ -100,6 +101,11 @@
 
     async function handlePurchase(pkg) {
         try {
+            if (!$is_login) {
+                alert("Please log in to continue!");
+                return;
+            }
+
             if (currentPlan === "" || currentPlan === "FREE") {
                 alert(
                     "Your purchase is in progress. Please wait until the completion alert appears!",
@@ -126,14 +132,6 @@
     }
 
     onMount(async () => {
-        try {
-            await initRevenueCat();
-            offerings = await getOfferings();
-        } catch (e) {
-            error = e;
-        }
-        currentPlan = await checkPurchase();
-
         await fastapi(
             "get",
             "/user/me",
@@ -141,6 +139,8 @@
             (res) => {
                 username.set(res.username);
                 is_login.set(true);
+                userID = String(res.user_id);
+                currentPlan = String(res.subscription_plan).toUpperCase();
 
                 if (res.app_version !== appVersion) {
                     isUpdated = false;
@@ -160,8 +160,14 @@
                 });
                 username.set("");
                 is_login.set(false);
+                currentPlan = "FREE";
             },
         );
+
+        await initRevenueCat(userID);
+        offerings = await getOfferings();
+
+
     });
 </script>
 
@@ -174,9 +180,9 @@
             {handleLogout}
     />
     <main class="plan-flow">
-            <section class="my-plan-card">
-                <div class="plan-title">MY Plan: {currentPlan}</div>
-            </section>
+        <section class="my-plan-card">
+            <div class="plan-title">MY Plan: {currentPlan}</div>
+        </section>
 
         <section class="subscribe-container">
             <div class="plan-grid">
